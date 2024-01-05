@@ -2,6 +2,9 @@
 
 ## This is python program that calls the explorer and gets the current block block hash and miner address of the winning block(staking is there too)
 
+### Might have to install pandas
+`https://pandas.pydata.org/`
+
 ### Get in the file then
 ### Simply just run:
 `python3 blockpie.py`
