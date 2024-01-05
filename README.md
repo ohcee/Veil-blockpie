@@ -14,3 +14,6 @@
 
 # Screenshot 
 ![Screenshot 2024-01-05 at 9 02 05 AM](https://github.com/ohcee/blockpie/assets/46406370/76f7ebcc-5c38-47f7-919d-36bb64f7ef3b)
+
+##TODO:
+Get algo of winning blocks 
