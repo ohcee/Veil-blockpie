@@ -17,3 +17,5 @@
 
 ## TODO:
 Get algo of winning blocks 
+Get rid of staking
+Make more pretty
