@@ -184,9 +184,13 @@ def main():
 
                     # Print the miner address and block count
                     if not df.empty:
-                        for index, row in df.iterrows():
+                        print("*******************************************")
+                        print("Current list of miners: ")
+                        for index, row in df.iterrows():                         
+                            print("-------------------------------------------")
                             print(f"Miner Address: {row['Miner Address']}, Block Count: {row['Block Count']}")
                             print("-------------------------------------------")
+                    print("*******************************************")        
 
                 last_best_block_hash = best_block_hash  # Update the last best block hash
                 last_synced_block = current_synced_block  # Update the last synced block
