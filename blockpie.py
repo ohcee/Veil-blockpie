@@ -6,7 +6,7 @@ import numpy as np
 
 # Initialize global variables
 address_totals = {}
-countdown = 1440
+#countdown = 1440
 best_block_hash = None
 current_synced_block = None
 
@@ -26,6 +26,7 @@ def fetch_latest_block_info(height=0, hash_hex=""):
         return None
 
 def fetch_miner_address(blockInfo):
+    #print("Debug: fetch_miner_address")
     if blockInfo is None:
         print("Error: blockInfo is None.")
         return
@@ -40,7 +41,7 @@ def fetch_miner_address(blockInfo):
         if outputs:  # Check if outputs is not empty
             addresses = outputs[0].get('addresses', [])
             if addresses:  # Check if addresses is not empty
-                miner_address = addresses[0][:5]  # Truncate to 5 characters
+                miner_address = addresses[0][:8]  # Truncate to 8 characters
             else:
                 miner_address = None
         else:
@@ -52,13 +53,12 @@ def fetch_miner_address(blockInfo):
             address_totals[miner_address] = 1
         else:
             if "Stake" in address_totals:
-                address_totals["Stake"] += 1
-            else:
-                address_totals["Stake"] = 1
+                return
 
         return miner_address           
 
 def addToAddressTotal(address, total):
+    #print("Debug: addToAddressTotal")
     global address_totals
     if address in address_totals:
         address_totals[address] += total
@@ -66,6 +66,7 @@ def addToAddressTotal(address, total):
         address_totals[address] = total
 
 def fetch_current_synced_block():
+    #print("Debug: fetch_current_synced_block")
     url = "https://explorer-api.veil-project.com/api/BlockchainInfo"
     response = requests.get(url)
     if response.status_code == 200:
@@ -78,8 +79,9 @@ def fetch_current_synced_block():
         return None, None
 
 def update_miner_csv(miner_address):
+    #print("Debug: update_miner_csv")
     df = pd.read_csv('miner_data.csv')
-    #print(df.columns)  # This will print the column names
+    print(df.columns)  # This will print the column names
     if miner_address in df['Miner Address'].values:
         df.loc[df['Miner Address'] == miner_address, 'Block Count'] += 1
     else:
@@ -89,31 +91,54 @@ def update_miner_csv(miner_address):
 
 def main():
     global best_block_hash, current_synced_block
-    counter = 0  # Initialize the counter
-    block_counter = 0  # Initialize the block counter
+    #counter = 0  # Initialize the counter
+    #block_counter = 0  # Initialize the block counter
+    start_block = fetch_current_synced_block()
+    starting_24hr_block = start_block[0]
+    ending_24hr_block = starting_24hr_block + 1440
+    plt.figure(figsize=(10, 10))  # Set the figure size
 
+    print("Starting Block: ", start_block)
+    print("Starting 24hr Block: ", starting_24hr_block) 
+    print("Ending 24hr Block: ", ending_24hr_block)
     plt.ion()  # Turn on interactive mode
     
     last_best_block_hash = best_block_hash  # Update the last best block hash
     last_synced_block = current_synced_block  # Update the last synced block
 
     while True:
+        #print("Debug: main loop")
         current_synced_block, best_block_hash = fetch_current_synced_block()
+
+        #if current_synced_block == ending_24hr_block:
+         #   start_block = fetch_current_synced_block()
+          #  starting_24hr_block = start_block[0]
+           # ending_24hr_block = starting_24hr_block + 1440
+        #else:
+         #   continue #This willeventually be used to reset the 24hr block counter
+                #take a screenshot of the plot every 24 hours, store it, then reset the plot and counter and start over.
 
         if current_synced_block and best_block_hash:
             if last_synced_block is not None and current_synced_block > last_synced_block + 1:
                 # If there are missed blocks, fetch their information
                 for block in range(last_synced_block + 1, current_synced_block):
+                    #print("Debug: updating blocks")
                     block_info = fetch_latest_block_info(height=block)
                     miner_address = fetch_miner_address(blockInfo=block_info)
+                    #print("Debug: miner_address: ", miner_address)
 
                     # Update the address_totals dictionary
-                    if miner_address in address_totals:
+                    #print("Debug: address_totals: ", address_totals)
+                    if miner_address == "Stake":
+                        continue
+                    elif miner_address in address_totals:
                         address_totals[miner_address] += 1
+                        #print("Debug: address_totals[miner_address]: ", address_totals[miner_address])
                     elif miner_address is not None:
                         address_totals[miner_address] = 1
+                        #print("Debug: address_totals[miner_address]: ", address_totals[miner_address])
                     else:
-                        address_totals["Stake"] += 1
+                        continue
 
                     # Update the database with the new address and count
                     update_miner_csv(miner_address)
@@ -128,12 +153,15 @@ def main():
             df['Block Count'] = pd.to_numeric(df['Block Count'], errors='coerce')
 
             if not df['Block Count'].dropna().empty:
+                #print("Debug: df['Block Count'].dropna().empty")
                 df = df.sort_values(by='Block Count', ascending=False)
                 df.to_csv('miner_data.csv', index=False)  # Save the data to a CSV file
 
-                counter += 1  # Increment the counter
+                #counter += 1  # Increment the counter
                 
-                if not df.empty and not df['Miner Address'].isna().all(): 
+                if not df.empty and not df['Miner Address'].isna().all():
+                    #print("Debug: df['Miner Address'].isna().all()") 
+                    
                     plt.clf()  # Clear the current figure
 
                     # Generate a list of colors for the pie slices
@@ -141,8 +169,8 @@ def main():
 
                     patches, texts, autotexts = plt.pie(df['Block Count'], labels=df['Miner Address'], autopct='%1.1f%%', pctdistance=0.85, colors=colors, textprops={'color': 'green'})
 
-                    plt.title(f'Active Miners in the Last 24 Hours\nCurrent Block Number: {current_synced_block}')
-                    plt.ylabel('Block Distribution')
+                    plt.title(f'Mining Block Distribution in the Last {current_synced_block - starting_24hr_block} blocks\nCurrent Block Number: {current_synced_block}')
+                    plt.xlabel('Block Distribution')
 
                     # Equal aspect ratio ensures that pie is drawn as a circle.
                     plt.axis('equal')  
@@ -152,19 +180,22 @@ def main():
 
                     plt.draw()  # Draw the plot
                     plt.pause(0.001)  # Pause to allow the plot to update
-                    plt.show()  # Display the figure
+                    #plt.show()  # Display the figure
 
                     # Print the miner address and block count
-                    for index, row in df.iterrows():
-                        print(f"Miner Address: {row['Miner Address']}, Block Count: {row['Block Count']}")
+                    if not df.empty:
+                        for index, row in df.iterrows():
+                            print(f"Miner Address: {row['Miner Address']}, Block Count: {row['Block Count']}")
+                            print("-------------------------------------------")
 
                 last_best_block_hash = best_block_hash  # Update the last best block hash
                 last_synced_block = current_synced_block  # Update the last synced block
 
         else:
             print("Error: Unable to fetch current synced block information.")
-
+        #print("Full loops: ", counter)
         time.sleep(15)
+        #print("Debug: end of main loop")
 
 if __name__ == "__main__":
     main()
