@@ -3,6 +3,8 @@ import requests
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
+import matplotlib.patches as mpatches
+
 
 # Initialize global variables
 address_totals = {}
@@ -29,13 +31,34 @@ def fetch_miner_address(blockInfo):
     #print("Debug: fetch_miner_address")
     if blockInfo is None:
         print("Error: blockInfo is None.")
-        return
+        return None, None
 
     transactions = blockInfo.get('transactions')
     if transactions is None:
-        print("Stake")
-        return
-
+        #print("Stake")
+        return None, None
+    
+    block_data = blockInfo.get('block', [])
+    #print("block_data: ", block_data)
+    proof_type = block_data.get('proof_type')
+    print("proof_type: ", proof_type)
+    winning_algo = ""
+    
+    if proof_type == 4:
+        print("sha256d")
+        winning_algo = "sha256d"
+    elif proof_type == 3:
+        print("randomx")
+        winning_algo = "randomx"
+    elif proof_type == 2:
+        print("progpow")
+        winning_algo = "progpow"
+    else:
+        print("stake")
+        winning_algo = "stake"
+    print("winning_algo: ", winning_algo, "for block: ", current_synced_block)
+    
+    miner_address = None
     for transaction in transactions:
         outputs = transaction.get('outputs', [])
         if outputs:  # Check if outputs is not empty
@@ -47,18 +70,15 @@ def fetch_miner_address(blockInfo):
         else:
             miner_address = None
 
-        if miner_address in address_totals:
-            address_totals[miner_address] += 1
-        elif miner_address is not None:
-            address_totals[miner_address] = 1
+        if miner_address == "Stake":
+            continue
         else:
-            if "Stake" in address_totals:
-                return
-
-        return miner_address           
+            break
+    print("miner_address: ", miner_address, "winning_algo: ", winning_algo) 
+    return miner_address, winning_algo
 
 def addToAddressTotal(address, total):
-    #print("Debug: addToAddressTotal")
+    print("Debug: addToAddressTotal")
     global address_totals
     if address in address_totals:
         address_totals[address] += total
@@ -78,129 +98,85 @@ def fetch_current_synced_block():
         print(f"Error: Unable to fetch current synced blockchaininfo information. Status code: {response.status_code}")
         return None, None
 
-def update_miner_csv(miner_address):
-    #print("Debug: update_miner_csv")
+def update_miner_csv(miner_address, winning_algo):
     df = pd.read_csv('miner_data.csv')
-    print(df.columns)  # This will print the column names
     if miner_address in df['Miner Address'].values:
         df.loc[df['Miner Address'] == miner_address, 'Block Count'] += 1
+        df.loc[df['Miner Address'] == miner_address, 'Winning Algo'] = winning_algo
     else:
-        new_row = pd.DataFrame({'Miner Address': [miner_address], 'Block Count': [1]})
+        new_row = pd.DataFrame({'Miner Address': [miner_address], 'Block Count': [1], 'Winning Algo': [winning_algo]})
         df = pd.concat([df, new_row], ignore_index=True)
     df.to_csv('miner_data.csv', index=False)
-
+        
 def main():
     global best_block_hash, current_synced_block
-    #counter = 0  # Initialize the counter
-    #block_counter = 0  # Initialize the block counter
     start_block = fetch_current_synced_block()
-    starting_24hr_block = start_block[0]
-    ending_24hr_block = starting_24hr_block + 1440
-    plt.figure(figsize=(10, 10))  # Set the figure size
-
-    print("Starting Block: ", start_block)
-    print("Starting 24hr Block: ", starting_24hr_block) 
-    print("Ending 24hr Block: ", ending_24hr_block)
+    plt.figure(figsize=(8, 9))  # Set the figure size
     plt.ion()  # Turn on interactive mode
+
+    prev_synced_block, prev_best_block_hash = None, None
+    # Initialize df as an empty DataFrame
+    df = pd.DataFrame()
+    last_processed_block = 0
     
-    last_best_block_hash = best_block_hash  # Update the last best block hash
-    last_synced_block = current_synced_block  # Update the last synced block
 
     while True:
-        #print("Debug: main loop")
         current_synced_block, best_block_hash = fetch_current_synced_block()
-
-        #if current_synced_block == ending_24hr_block:
-         #   start_block = fetch_current_synced_block()
-          #  starting_24hr_block = start_block[0]
-           # ending_24hr_block = starting_24hr_block + 1440
-        #else:
-         #   continue #This willeventually be used to reset the 24hr block counter
-                #take a screenshot of the plot every 24 hours, store it, then reset the plot and counter and start over.
-
+        if current_synced_block == last_processed_block:
+            time.sleep(5)
+        else:
+            print("Current block: ", current_synced_block)
+        # Check if the block or block hash is still the same
+        if current_synced_block == prev_synced_block and best_block_hash == prev_best_block_hash:
+            #print("No new blocks found. Sleeping for 15 seconds...")
+            time.sleep(5)
+            continue
+                
+        # Update the previous block and block hash
+        prev_synced_block, prev_best_block_hash = current_synced_block, best_block_hash
         if current_synced_block and best_block_hash:
-            if last_synced_block is not None and current_synced_block > last_synced_block + 1:
-                # If there are missed blocks, fetch their information
-                for block in range(last_synced_block + 1, current_synced_block):
-                    #print("Debug: updating blocks")
-                    block_info = fetch_latest_block_info(height=block)
-                    miner_address = fetch_miner_address(blockInfo=block_info)
-                    #print("Debug: miner_address: ", miner_address)
+            miner_address, winning_algo = fetch_miner_address(fetch_latest_block_info(height=current_synced_block, hash_hex=best_block_hash))
+            if miner_address:
+                if miner_address in address_totals:
+                    address_totals[miner_address]['count'] += 1
+                    address_totals[miner_address]['winning_algo'] = winning_algo
+                else:
+                    address_totals[miner_address] = {'count': 1, 'winning_algo': winning_algo}
 
-                    # Update the address_totals dictionary
-                    #print("Debug: address_totals: ", address_totals)
-                    if miner_address == "Stake":
-                        continue
-                    elif miner_address in address_totals:
-                        address_totals[miner_address] += 1
-                        #print("Debug: address_totals[miner_address]: ", address_totals[miner_address])
-                    elif miner_address is not None:
-                        address_totals[miner_address] = 1
-                        #print("Debug: address_totals[miner_address]: ", address_totals[miner_address])
-                    else:
-                        continue
+                update_miner_csv(miner_address, winning_algo)
 
-                    # Update the database with the new address and count
-                    update_miner_csv(miner_address)
+            # Flatten the dictionary
+                flattened_data = [(k, v['count'], v['winning_algo']) for k, v in address_totals.items()]
 
-            if best_block_hash == last_best_block_hash:  # If the best block hash hasn't changed, skip this iteration
-                time.sleep(15)
-                continue
+                # Create the DataFrame
+                df = pd.DataFrame(flattened_data, columns=['Miner Address', 'Block Count', 'Winning Algo'])
+                df['Block Count'] = pd.to_numeric(df['Block Count'], errors='coerce')
 
-            miner_address = fetch_miner_address(blockInfo=fetch_latest_block_info(height=current_synced_block, hash_hex=best_block_hash))
-
-            df = pd.DataFrame(list(address_totals.items()), columns=['Miner Address', 'Block Count'])
-            df['Block Count'] = pd.to_numeric(df['Block Count'], errors='coerce')
-
-            if not df['Block Count'].dropna().empty:
-                #print("Debug: df['Block Count'].dropna().empty")
+            if 'Block Count' in df.columns and not df['Block Count'].dropna().empty:
                 df = df.sort_values(by='Block Count', ascending=False)
                 df.to_csv('miner_data.csv', index=False)  # Save the data to a CSV file
 
-                #counter += 1  # Increment the counter
-                
                 if not df.empty and not df['Miner Address'].isna().all():
-                    #print("Debug: df['Miner Address'].isna().all()") 
-                    
                     plt.clf()  # Clear the current figure
-
-                    # Generate a list of colors for the pie slices
-                    colors = plt.cm.viridis(np.linspace(0, 1, len(df)))
-
-                    patches, texts, autotexts = plt.pie(df['Block Count'], labels=df['Miner Address'], autopct='%1.1f%%', pctdistance=0.85, colors=colors, textprops={'color': 'green'})
-
-                    plt.title(f'Mining Block Distribution in the Last {current_synced_block - starting_24hr_block} blocks\nCurrent Block Number: {current_synced_block}')
+                    colors = {'progpow': 'red', 'randomx': 'blue', 'sha256d': 'green'}
+                    patches, texts, autotexts = plt.pie(df['Block Count'], labels=df['Miner Address'], autopct='%1.1f%%', pctdistance=0.85, colors=[colors.get(algo, 'gray') for algo in df['Winning Algo']], textprops={'color': 'green'}, wedgeprops=dict(edgecolor='black', linewidth=1))
+                    plt.title(f'Mining Block Distribution in the Last {current_synced_block - start_block[0]} blocks\nCurrent Block Number: {current_synced_block}')
                     plt.xlabel('Block Distribution')
+                    plt.axis('equal')  # Equal aspect ratio ensures that pie is drawn as a circle.
+                    plt.setp(autotexts, size=8, weight="bold", color='black')
 
-                    # Equal aspect ratio ensures that pie is drawn as a circle.
-                    plt.axis('equal')  
+                    # Define the colors for each algorithm
+                    legend_patches = [mpatches.Patch(color=color, label=algo) for algo, color in colors.items()]
 
-                    # Increase label size
-                    plt.setp(autotexts, size=8, weight="bold", color='orange')
+                    # Add the new legend to the plot
+                    plt.legend(handles=legend_patches, title='Algorithms')
 
                     plt.draw()  # Draw the plot
                     plt.pause(0.001)  # Pause to allow the plot to update
-                    #plt.show()  # Display the figure
+                    plt.show()  # Display the figure
 
-                    # Print the miner address and block count
-                    if not df.empty:
-                        print("*******************************************")
-                        print("Current list of miners: ")
-                        for index, row in df.iterrows():                         
-                            print("-------------------------------------------")
-                            print(f"Miner Address: {row['Miner Address']}, Block Count: {row['Block Count']}")
-                            print("-------------------------------------------")
-                    print("*******************************************")        
-
-                last_best_block_hash = best_block_hash  # Update the last best block hash
-                last_synced_block = current_synced_block  # Update the last synced block
-
-        else:
-            print("Error: Unable to fetch current synced block information.")
-        #print("Full loops: ", counter)
-        time.sleep(15)
-        #print("Debug: end of main loop")
+                    last_processed_block = current_synced_block
+                    time.sleep(5)  # Sleep for 5 seconds
 
 if __name__ == "__main__":
     main()
-    
