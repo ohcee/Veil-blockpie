@@ -64,7 +64,9 @@ def fetch_miner_address(blockInfo):
         if outputs:  # Check if outputs is not empty
             addresses = outputs[0].get('addresses', [])
             if addresses:  # Check if addresses is not empty
-                miner_address = addresses[0][:8]  # Truncate to 8 characters
+                miner_address = addresses[0][:8]  
+                if miner_address == "VHU81LE2":
+                    miner_address = "Fastpool"
             else:
                 miner_address = None
         else:
@@ -137,6 +139,8 @@ def main():
             prev_synced_block, prev_best_block_hash = current_synced_block, best_block_hash
             if current_synced_block and best_block_hash:
                 miner_address, winning_algo = fetch_miner_address(fetch_latest_block_info(height=current_synced_block, hash_hex=best_block_hash))
+                if miner_address == "VHU81LE2":
+                    miner_address = "Fastpool"
                 if miner_address:
                     if miner_address in address_totals:
                         address_totals[miner_address]['count'] += 1
