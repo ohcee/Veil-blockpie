@@ -1,6 +1,6 @@
 # BlockPie
 
-## This is python program that calls the explorer and gets the current block, block hash, and miner address of the winning block(staking is there too)
+## This is python program that calls the explorer and gets the current block, block hash, and miner address of the winning block. Along with which algo mined the block
 
 ### Might have to install pandas
 `https://pandas.pydata.org/`
