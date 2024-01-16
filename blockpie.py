@@ -2,13 +2,11 @@ import time
 import requests
 import pandas as pd
 import matplotlib.pyplot as plt
-import numpy as np
 import matplotlib.patches as mpatches
 
 
 # Initialize global variables
 address_totals = {}
-#countdown = 1440
 best_block_hash = None
 current_synced_block = None
 
@@ -28,6 +26,9 @@ def fetch_latest_block_info(height=0, hash_hex=""):
         return None
     
 def fetch_block_before(height=0, hash_hex=""):
+    fetched_blocks = {}
+    if height in fetched_blocks:
+        return fetched_blocks[height]
     url = "https://explorer-api.veil-project.com/api/Block"
     data = {
         "hash": hash_hex,
@@ -38,20 +39,18 @@ def fetch_block_before(height=0, hash_hex=""):
     response = requests.post(url, json=data)
     if response.status_code == 200:
         response_data = response.json()
-        #print("response_data: ", response_data)
         prev_block = response_data.get('prevBlock', {})
-        #print("prev_block: ", prev_block)
         if prev_block:
+
             prev_block_info = prev_block.get('hash', 'height')
             if prev_block_info:
                 prev_block_height = prev_block.get('height')
-                #print("prev_block_height: ", prev_block_height)
                 prev_block_hash = prev_block.get('hash')
-                #print("prev_block_hash: ", prev_block_hash)
-                fetch_latest_block_info(height=prev_block_height, hash_hex=prev_block_hash)
-                miner_address, winning_algo = fetch_miner_address(fetch_latest_block_info(height=prev_block_height, hash_hex=prev_block_hash))
+                block_info = fetch_latest_block_info(height=prev_block_height, hash_hex=prev_block_hash)  
+                miner_address, winning_algo = fetch_miner_address(block_info)  
                 if miner_address and winning_algo:
                     addToAddressTotal(miner_address, 1)
+                fetched_blocks[height] = block_info    
             else:
                 print("Error: hash or height does not exist in prevBlock")
                 return None, None
@@ -64,36 +63,37 @@ def fetch_block_before(height=0, hash_hex=""):
         return None, None  
 
 def fetch_miner_address(blockInfo):
-    #print("Debug: fetch_miner_address")
     if blockInfo is None or isinstance(blockInfo, tuple):
         print("Error: blockInfo is None or not a dictionary.")
         return None, None
 
     transactions = blockInfo.get('transactions')
     if transactions is None:
-        #print("Stake")
         return None, None
     
     block_data = blockInfo.get('block', [])
-    #print("block_data: ", block_data)
     proof_type = block_data.get('proof_type')
-    #print("proof_type: ", proof_type)
     winning_algo = ""
     
     if proof_type == 4:
-        print("sha256d block found")
-        winning_algo = "sha256d"
+            winning_algo = "sha256d"
     elif proof_type == 3:
-        print("randomx block found")
-        winning_algo = "randomx"
+            winning_algo = "randomx"
     elif proof_type == 2:
-        print("progpow block found")
-        winning_algo = "progpow"
+            winning_algo = "progpow"
     else:
-        print("stake block found(Not counted)")
-        winning_algo = "stake"
-    #print("winning_algo: ", winning_algo, "for block: ", current_synced_block)
-    
+            winning_algo = "stake"
+
+    '''if print_block_winner:
+        if proof_type == 4:
+            print("sha256d block found Block#", block_data.get('height'))
+        elif proof_type == 3:
+            print("randomx block found Block#", block_data.get('height'))
+        elif proof_type == 2:
+            print("progpow block found Block#", block_data.get('height'))
+        else:
+            print("stake(Not counted) Block#", block_data.get('height'))'''
+        
     miner_address = None
     for transaction in transactions:
         outputs = transaction.get('outputs', [])
@@ -112,11 +112,9 @@ def fetch_miner_address(blockInfo):
             continue
         else:
             break
-    #print("miner_address: ", miner_address, "winning_algo: ", winning_algo) 
     return miner_address, winning_algo
 
 def addToAddressTotal(address, total):
-    #print("Debug: addToAddressTotal")
     global address_totals
     if address in address_totals and isinstance(address_totals[address], dict):
         address_totals[address]['count'] += total
@@ -128,7 +126,6 @@ def addToAddressTotal(address, total):
         address_totals[address] = {'count': total, 'winning_algo': None}
 
 def fetch_current_synced_block():
-    #print("Debug: fetch_current_synced_block")
     url = "https://explorer-api.veil-project.com/api/BlockchainInfo"
     response = requests.get(url)
     if response.status_code == 200:
@@ -165,10 +162,11 @@ def fetch_and_update_current_synced_block():
 def update_start_block(start_block, current_synced_block):
     if start_block is None:
         return current_synced_block
-    return start_block
+    return start_block 
 
 def update_prev_block_info(current_synced_block, best_block_hash):
-    miner_address, winning_algo = fetch_miner_address(fetch_latest_block_info(height=current_synced_block, hash_hex=best_block_hash))
+    block_info = fetch_latest_block_info(height=current_synced_block, hash_hex=best_block_hash)
+    miner_address, winning_algo = fetch_miner_address(block_info)
     if miner_address == "VHU81LE2":
         miner_address = "Fastpool"
     if miner_address:
@@ -181,16 +179,18 @@ def update_prev_block_info(current_synced_block, best_block_hash):
 
 def process_missed_blocks(start_block, last_processed_block, current_synced_block):
     if start_block is not None and current_synced_block - last_processed_block > 1 and last_processed_block >= start_block:
-        print("Debug: missed blocks")
+        print("Finding missed blocks")
         missed_block_start = max(last_processed_block + 1, start_block)
-        print("missed_block_start: ", missed_block_start)
         if missed_block_start < current_synced_block:
-            # Include the current block in the range
+            #print("Current synced block: ", current_synced_block)
+            #print("Missed blocks start: ", missed_block_start)
             for prev_block_height in range(missed_block_start, current_synced_block + 1):
                 if prev_block_height != current_synced_block:
                     prev_block_info = fetch_block_before(height=prev_block_height)
                     if prev_block_info:
+                        #print("Processing missed block: ", prev_block_height)
                         miner_address, winning_algo = fetch_miner_address(prev_block_info)
+                        #print("Miner address: ", miner_address)
                         if miner_address:
                             if miner_address in address_totals and isinstance(address_totals[miner_address], dict):
                                 address_totals[miner_address]['count'] += 1
@@ -198,7 +198,6 @@ def process_missed_blocks(start_block, last_processed_block, current_synced_bloc
                             else:
                                 address_totals[miner_address] = {'count': 1, 'winning_algo': winning_algo}
                             update_miner_csv(miner_address, winning_algo)
-                            print(f"Block info added for block: {prev_block_height}, Miner: {miner_address}, Winning Algo: {winning_algo}")
 
 def create_and_show_plot(start_block, current_synced_block):
     flattened_data = [(k, v['count'], v['winning_algo']) for k, v in address_totals.items()]
@@ -208,7 +207,6 @@ def create_and_show_plot(start_block, current_synced_block):
     if 'Block Count' in df.columns and not df['Block Count'].dropna().empty:
         df = df.sort_values(by='Block Count', ascending=False)
         df.to_csv('miner_data.csv', index=False)
-        
         plt.clf()
         colors = {'progpow': 'red', 'randomx': 'blue', 'sha256d': 'green'}
         patches, texts, autotexts = plt.pie(df['Block Count'], labels=df['Miner Address'], autopct='%1.1f%%', pctdistance=0.85, colors=[colors.get(algo, 'gray') for algo in df['Winning Algo']], textprops={'color': 'green'}, wedgeprops=dict(edgecolor='black', linewidth=1))
@@ -222,6 +220,16 @@ def create_and_show_plot(start_block, current_synced_block):
         plt.pause(0.001)
         plt.show()
 
+def print_miner_info():
+    print("\nMiner Information: ")
+    print("**********************************************")
+    # Sort address_totals by block count in descending order
+    sorted_miner_info = sorted(address_totals.items(), key=lambda x: x[1]['count'], reverse=True)
+    for miner_address, data in sorted_miner_info:
+        print("* Miner Address: ", miner_address, "Block Count:", data['count'], " "," *")
+        print("* ----------------------------------------", " " ,"*")
+    print("**********************************************\n")        
+
 def main():
     global best_block_hash, current_synced_block
     initialize_plot()
@@ -234,36 +242,27 @@ def main():
 
     while True:
         current_synced_block, best_block_hash = fetch_and_update_current_synced_block()
+        print("############################")
+        print("#  Start block: ",start_block, " ","#")
+        print("#  Current block: ",current_synced_block, "#")
+        print("############################")
 
-        if current_synced_block == prev_synced_block and best_block_hash == prev_best_block_hash:
-            print("No new blocks. Waiting for 30 seconds...")
-            time.sleep(30)
-        else:
-            print("Current block: ", current_synced_block)
-            print("Start block: ", start_block)
+        start_block = update_start_block(start_block, current_synced_block)
 
-            start_block = update_start_block(start_block, current_synced_block)
+        prev_synced_block, prev_best_block_hash = current_synced_block, best_block_hash
 
-            prev_synced_block, prev_best_block_hash = current_synced_block, best_block_hash
+        update_prev_block_info(current_synced_block, best_block_hash)
 
-            update_prev_block_info(current_synced_block, best_block_hash)
+        process_missed_blocks(start_block, last_processed_block, current_synced_block)
 
-            process_missed_blocks(start_block, last_processed_block, current_synced_block)
+        last_processed_block = current_synced_block
 
-            last_processed_block = current_synced_block
+        create_and_show_plot(start_block, current_synced_block)
 
-            create_and_show_plot(start_block, current_synced_block)
+        print_miner_info()
 
-        print("\nMiner Information: ")
-        print("*******************************************")
-        # Sort address_totals by block count in descending order
-        sorted_miner_info = sorted(address_totals.items(), key=lambda x: x[1]['count'], reverse=True)
-        for miner_address, data in sorted_miner_info:
-            print("Miner Address: ", miner_address, "Block Count: ", data['count'])
-            print("-------------------------------------------")
-        print("*******************************************\n")
-
-        time.sleep(30)
+        time.sleep(300) 
 
 if __name__ == "__main__":
     main()
+
