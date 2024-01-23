@@ -1,6 +1,7 @@
 # BlockPie
 
-## This is python program that calls the explorer and gets the current block, block hash, and miner address of the winning block. Along with which algo mined the block
+## This is python program that calls the explorer and gets the current block, block hash, and miner address of the winning block. 
+## Then checks for missed blocks then updates the addresses and block counts. Then display in a colored coded piechart.
 
 ### Might have to install pandas
 `https://pandas.pydata.org/`
