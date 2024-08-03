@@ -6,6 +6,10 @@
 ### Might have to install pandas
 `https://pandas.pydata.org/`
 
+### And these
+`pip3 install requests`
+`pip3 install matplotlib`
+
 ### Get in the file then
 ### Simply just run:
 `python3 blockpie.py`
