@@ -3,12 +3,9 @@
 ## This is python program that calls the explorer and gets the current block, block hash, and miner address of the winning block/s. 
 ## Then checks for missed blocks then updates the addresses and block counts. Then display a colored coded piechart displaying the % of blocks won for each miner that has won a block. 
 
-### Might have to install pandas
-`https://pandas.pydata.org/`
-
-### And these
-`pip3 install requests`
-`pip3 install matplotlib`
+### Install pandas request and matplotlib
+`pip install requests pandas matplotlib`
+could be `pip3`
 
 ### Get in the file then
 ### Simply just run:
