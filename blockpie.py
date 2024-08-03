@@ -102,8 +102,8 @@ def update_miner_csv(miner_address, winning_algo):
     df.to_csv('miner_data.csv', index=False)
 
 def initialize_plot():
-    plt.figure(figsize=(8, 9))
     plt.ion()
+    plt.figure(figsize=(8, 9))
 
 def fetch_and_update_current_synced_block():
     while True:
@@ -156,7 +156,6 @@ def create_and_show_plot(start_block, current_synced_block):
         plt.legend(handles=[mpatches.Patch(color=color, label=algo) for algo, color in colors.items()], title='Algorithms')
         plt.draw()
         plt.pause(0.001)
-        plt.show()
 
 def print_miner_info():
     print("\nMiner Information: ")
@@ -193,5 +192,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
-
