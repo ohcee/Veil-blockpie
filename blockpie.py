@@ -129,30 +129,33 @@ class MinerAnalyzer:
         print(f"Average rate: {rate:.2f} blocks/sec")
 
     def run(self):
-        while True:
-            current_block, current_hash = self.fetch_current_synced_block()
-            if not current_block or not current_hash:
-                time.sleep(15)
-                continue
+    while True:
+        current_block, current_hash = self.fetch_current_synced_block()
+        if not current_block or not current_hash:
+            time.sleep(15)
+            continue
 
-            if self.start_block is None:
-                self.start_block = current_block
+        # ✅ Set start and last_processed_block to current block to avoid scanning history
+        if self.start_block is None:
+            self.start_block = current_block
+            self.last_processed_block = current_block - 1  # so we only process current_block
 
-            for h in range(self.last_processed_block + 1, current_block + 1):
-                block_info = self.fetch_block(height=h)
-                miner_address, algo = self.fetch_miner_address(block_info)
-                if miner_address:
-                    self.add_to_address_total(miner_address, algo)
-                    self.total_blocks_processed += 1
-                    if self.verbose:
-                        logging.debug(f"Block {h} - {miner_address} [{algo}]")
+        for h in range(self.last_processed_block + 1, current_block + 1):
+            block_info = self.fetch_block(height=h)
+            miner_address, algo = self.fetch_miner_address(block_info)
+            if miner_address:
+                self.add_to_address_total(miner_address, algo)
+                self.total_blocks_processed += 1
+                if self.verbose:
+                    logging.debug(f"Block {h} - {miner_address} [{algo}]")
 
-            self.last_processed_block = current_block
-            self.flush_miner_updates()
-            self.update_plot(current_block)
-            self.print_miner_info()
-            self.print_summary_stats()
-            time.sleep(self.interval)
+        self.last_processed_block = current_block
+        self.flush_miner_updates()
+        self.update_plot(current_block)
+        self.print_miner_info()
+        self.print_summary_stats()
+        time.sleep(self.interval)
+
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Veil Miner Distribution Tracker")
