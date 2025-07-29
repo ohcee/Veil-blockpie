@@ -47,3 +47,11 @@ streamlit run blockpie.py
    - Works best when left running over time to analyze block trends
 
    - Miner warning is triggered if any single address exceeds 51% of blocks in the tracked window
+
+   - Pulls block data from explorer.veil-project.com every 5 minutes
+
+   - Saves block height, timestamp, mining address, algorithm, and difficulty to miner_data.csv
+
+   - Displays the latest mining activity and trends with Streamlit + Plotly
+
+   - Detects PoW miner dominance and deviation from expected block proportions
