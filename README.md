@@ -34,7 +34,7 @@ pip install -r requirements.txt
 ```
 - Or install manually:
 ```bash
-pip install streamlit requests pandas plotly streamlit-autorefresh
+pip install streamlit requests pandas plotly streamlit-autorefresh numpy
 ```
 3. Run the Dashboard
 ```bash
