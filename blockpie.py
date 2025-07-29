@@ -1,50 +1,39 @@
-# Save this as miner_tracker.py
-
-import matplotlib.pyplot as plt
-import matplotlib.patches as mpatches
-import pandas as pd
-import requests
+import csv
 import time
-import argparse
-import logging
-from functools import lru_cache
+import requests
+from datetime import datetime, timezone
+import os
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+from streamlit_autorefresh import st_autorefresh
 
-class MinerAnalyzer:
-    def __init__(self, interval=300, verbose=False):
-        self.api_base_url = "https://explorer-api.veil-project.com/api/"
-        self.session = requests.Session()
-        self.address_totals = {}
-        self.interval = interval
-        self.miner_updates = []
-        self.start_block = None
-        self.last_processed_block = 0
-        self.total_blocks_processed = 0
-        self.start_time = time.time()
-        self.colors = {'progpow': 'red', 'randomx': 'blue', 'sha256d': 'green'}
-        self.verbose = verbose
+API_URL = "https://explorer-api.veil-project.com/api/Block"
+CSV_FILE = "miner_data.csv"
+PROOF_TYPE_NAMES = {
+    2: "ProgPoW",
+    3: "RandomX",
+    4: "SHA256D"
+}
 
-        # Plot
-        plt.ion()
-        self.fig, self.ax = plt.subplots(figsize=(9, 10))
-
-        # Logging
-        logging.basicConfig(
-            level=logging.DEBUG if verbose else logging.INFO,
-            format='[%(asctime)s] %(levelname)s: %(message)s'
-        )
-
-    def fetch_data_from_api(self, endpoint, data=None, method='POST'):
-        url = self.api_base_url + endpoint
-        try:
-            if method == 'POST':
-                response = self.session.post(url, json=data, timeout=10)
-            else:
-                response = self.session.get(url, timeout=10)
-            response.raise_for_status()
+# -------------------- Data Fetching --------------------
+def fetch_block(height):
+    try:
+        response = requests.post(API_URL, headers={"Content-Type": "application/json"}, json={"height": height, "offset": 0, "count": 1})
+        if response.ok:
             return response.json()
-        except requests.RequestException as e:
-            logging.warning(f"Failed to fetch {endpoint}: {e}")
-            return None
+    except Exception as e:
+        print(f"Error fetching block {height}: {e}")
+    return None
+
+def fetch_blockchain_info():
+    try:
+        response = requests.get("https://explorer-api.veil-project.com/api/BlockchainInfo")
+        if response.ok:
+            return response.json()
+    except Exception as e:
+        print(f"Error fetching blockchain info: {e}")
+    return None
 
     def fetch_current_synced_block(self):
         data = self.fetch_data_from_api("BlockchainInfo", method='GET')
@@ -129,33 +118,30 @@ class MinerAnalyzer:
         print(f"Average rate: {rate:.2f} blocks/sec")
 
     def run(self):
-    while True:
-        current_block, current_hash = self.fetch_current_synced_block()
-        if not current_block or not current_hash:
-            time.sleep(15)
-            continue
+        while True:
+            current_block, current_hash = self.fetch_current_synced_block()
+            if not current_block or not current_hash:
+                time.sleep(15)
+                continue
 
-        # ✅ Set start and last_processed_block to current block to avoid scanning history
-        if self.start_block is None:
-            self.start_block = current_block
-            self.last_processed_block = current_block - 1  # so we only process current_block
+            if self.start_block is None:
+                self.start_block = current_block
 
-        for h in range(self.last_processed_block + 1, current_block + 1):
-            block_info = self.fetch_block(height=h)
-            miner_address, algo = self.fetch_miner_address(block_info)
-            if miner_address:
-                self.add_to_address_total(miner_address, algo)
-                self.total_blocks_processed += 1
-                if self.verbose:
-                    logging.debug(f"Block {h} - {miner_address} [{algo}]")
+            for h in range(self.last_processed_block + 1, current_block + 1):
+                block_info = self.fetch_block(height=h)
+                miner_address, algo = self.fetch_miner_address(block_info)
+                if miner_address:
+                    self.add_to_address_total(miner_address, algo)
+                    self.total_blocks_processed += 1
+                    if self.verbose:
+                        logging.debug(f"Block {h} - {miner_address} [{algo}]")
 
-        self.last_processed_block = current_block
-        self.flush_miner_updates()
-        self.update_plot(current_block)
-        self.print_miner_info()
-        self.print_summary_stats()
-        time.sleep(self.interval)
-
+            self.last_processed_block = current_block
+            self.flush_miner_updates()
+            self.update_plot(current_block)
+            self.print_miner_info()
+            self.print_summary_stats()
+            time.sleep(self.interval)
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Veil Miner Distribution Tracker")
