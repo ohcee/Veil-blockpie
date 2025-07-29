@@ -25,7 +25,7 @@ Install the required Python libraries:
 
 ```bash
 pip install streamlit requests pandas matplotlib
-
+```
 🧩 How to Use
 
     Clone or download this repository
@@ -33,9 +33,9 @@ pip install streamlit requests pandas matplotlib
     Ensure Python 3.8+ is installed on your system
 
     Open a terminal in the project folder and run:
-
+```bash
 streamlit run dashboard.py
-
+```
     A local web app will open automatically in your browser
 
     Let it run in the background to track mining activity over time
