@@ -1,21 +1,27 @@
-# BlockPie
+# BlockPie 🥧
 
-## This is python program that calls the explorer and gets the current block, block hash, and miner address of the winning block/s. 
-## Then checks for missed blocks then updates the addresses and block counts. Then display a colored coded piechart displaying the % of blocks won for each miner that has won a block. 
+BlockPie is a real-time miner tracking and analytics dashboard for the [Veil Project](https://veil-project.com) Proof-of-Work blockchain. It monitors newly mined blocks using data from the public Veil Explorer API and displays live mining statistics, including block distribution per miner address, mining algorithm breakdown (ProgPoW, RandomX, SHA256D), and network difficulty.
 
-### Install pandas request and matplotlib
-`pip install requests pandas matplotlib`
-could be `pip3`
+It helps reveal who is mining blocks, how often, and how dominant any one miner is — right in a simple web-based interface.
 
-### Get in the file then
-### Simply just run:
-`python3 blockpie.py`
+---
 
-### Give a few minutes to load up and it should pop a window with the piechart with address ~~and stakes~~. Shows a percentage of current blocks distribution.
-### Its from the current block when you start the program, so give it time at least a day or two to really see how the blocks are being distributed.
+## 🚀 Features
 
+- ⛏️ Displays top miners and how many blocks each has found  
+- 📊 Shows mining algorithm distribution (ProgPoW / RandomX / SHA256D)  
+- 🔍 Detects missed blocks and updates miner block counts  
+- ⏱️ Shows estimated network hashrates and difficulty per algorithm  
+- 🧠 Warns about potential 51% miner dominance  
+- 🕒 Automatically refreshes every 5 minutes, with optional manual refresh  
+- 📈 Graphs include pie charts, bar charts, and difficulty history  
+- 🎯 Filtered to only PoW blocks — staking blocks are ignored  
 
-## TODO:
-~~Get algo of winning blocks~~ 
-~~Get rid of staking~~
-#### Make more pretty
+---
+
+## 🛠 Requirements
+
+Install the required Python libraries:
+
+```bash
+pip install streamlit requests pandas matplotlib
