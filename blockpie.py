@@ -10,13 +10,9 @@ from streamlit_autorefresh import st_autorefresh
 
 API_URL = "https://explorer-api.veil-project.com/api/Block"
 CSV_FILE = "miner_data.csv"
-PROOF_TYPE_NAMES = {
-    2: "ProgPoW",
-    3: "RandomX",
-    4: "SHA256D"
-}
+PROOF_TYPE_NAMES = {2: "ProgPoW", 3: "RandomX", 4: "SHA256D"}
 
-# -------------------- Data Fetching --------------------
+# ----------- Data Fetching -----------
 def fetch_block(height):
     try:
         response = requests.post(API_URL, headers={"Content-Type": "application/json"}, json={"height": height, "offset": 0, "count": 1})
@@ -35,121 +31,193 @@ def fetch_blockchain_info():
         print(f"Error fetching blockchain info: {e}")
     return None
 
-    def fetch_current_synced_block(self):
-        data = self.fetch_data_from_api("BlockchainInfo", method='GET')
-        if data:
-            return data.get("currentSyncedBlock"), data.get("chainInfo", {}).get("bestblockhash")
-        return None, None
+def parse_block_data(block_data):
+    height = block_data["block"]["height"]
+    timestamp = block_data["block"]["time"]
+    proof_type = block_data["block"].get("proof_type", -1)
+    difficulty = block_data["block"].get("difficulty", 0)
+    txs = block_data.get("transactions", [])
 
-    @lru_cache(maxsize=10000)
-    def fetch_block(self, height=0, hash_hex=""):
-        data = {"hash": hash_hex, "height": height, "offset": 0, "count": 1}
-        return self.fetch_data_from_api("Block", data)
+    algo = "Stake"
+    address = "Unknown"
 
-    def fetch_miner_address(self, block_info):
-        if not block_info:
-            return None, None
-        transactions = block_info.get('transactions', [])
-        block_data = block_info.get('block', {})
-        proof_type = block_data.get('proof_type', "")
-        algo_map = {4: "sha256d", 3: "randomx", 2: "progpow"}
-        winning_algo = algo_map.get(proof_type, "stake")
-        for transaction in transactions:
-            outputs = transaction.get('outputs', [])
-            if outputs:
-                addresses = outputs[0].get('addresses', [])
-                if addresses:
-                    addr = addresses[0][:8]
-                    return "Fastpool" if addr == "VHU81LE2" else addr, winning_algo
-        return None, winning_algo
+    if proof_type in [2, 3, 4]:
+        algo = PROOF_TYPE_NAMES.get(proof_type, "Unknown")
+        if txs and "outputs" in txs[0]:
+            for output in txs[0]["outputs"]:
+                if output.get("isCoinBase") and output.get("addresses"):
+                    address = output["addresses"][0]
+                    break
 
-    def add_to_address_total(self, address, algo):
-        if address not in self.address_totals:
-            self.address_totals[address] = {'count': 0, 'winning_algo': algo}
-        self.address_totals[address]['count'] += 1
-        self.address_totals[address]['winning_algo'] = algo
-        self.miner_updates.append((address, algo))
+    return (
+        height,
+        datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
+        address,
+        algo,
+        difficulty
+    )
 
-    def flush_miner_updates(self):
-        try:
-            df = pd.read_csv('miner_data.csv')
-        except FileNotFoundError:
-            df = pd.DataFrame(columns=['Miner Address', 'Block Count', 'Winning Algo'])
+def append_to_csv(height, timestamp, address, algo, difficulty):
+    file_exists = os.path.isfile(CSV_FILE)
+    with open(CSV_FILE, mode='a', newline='') as f:
+        writer = csv.writer(f)
+        if not file_exists:
+            writer.writerow(["Block Height", "Timestamp", "Address", "Algorithm", "Difficulty"])
+        writer.writerow([height, timestamp, address, algo, difficulty])
 
-        for address, algo in self.miner_updates:
-            if address in df['Miner Address'].values:
-                df.loc[df['Miner Address'] == address, 'Block Count'] += 1
-                df.loc[df['Miner Address'] == address, 'Winning Algo'] = algo
-            else:
-                new_row = pd.DataFrame({'Miner Address': [address], 'Block Count': [1], 'Winning Algo': [algo]})
-                df = pd.concat([df, new_row], ignore_index=True)
+def get_existing_heights():
+    if not os.path.exists(CSV_FILE):
+        return set()
+    df = pd.read_csv(CSV_FILE)
+    return set(df["Block Height"].astype(int))
 
-        df.to_csv('miner_data.csv', index=False)
-        self.miner_updates.clear()
+def get_estimated_randomx_hashrate():
+    try:
+        stats = requests.get("https://explorer-api.veil-project.com/api/getchainalgostats").json()
+        total_blocks = stats.get("period", 0)
+        randomx_blocks = stats.get("randomx", 0)
 
-    def update_plot(self, current_block):
-        df = pd.DataFrame([(k, v['count'], v['winning_algo']) for k, v in self.address_totals.items()],
-                          columns=['Miner Address', 'Block Count', 'Winning Algo'])
-        df = df[df['Block Count'] > 0].sort_values(by='Block Count', ascending=False)
+        if randomx_blocks == 0 or total_blocks == 0:
+            return 0
 
-        self.ax.clear()
-        self.ax.pie(df['Block Count'], labels=df['Miner Address'], autopct='%1.1f%%', pctdistance=0.85,
-                    colors=[self.colors.get(algo, 'gray') for algo in df['Winning Algo']],
-                    textprops={'color': 'green'},
-                    wedgeprops=dict(edgecolor='black', linewidth=1))
-        self.ax.set_title(f'Mining Block Distribution\nCurrent Block: {current_block}')
-        self.ax.axis('equal')
-        self.ax.legend(handles=[mpatches.Patch(color=color, label=algo) for algo, color in self.colors.items()],
-                       title='Algorithms')
-        plt.draw()
-        plt.pause(0.001)
+        seconds = stats.get("finish", 0) - stats.get("start", 0)
+        avg_block_time = seconds / total_blocks
+        avg_rx_spacing = avg_block_time * (total_blocks / randomx_blocks)
 
-    def print_miner_info(self):
-        print("\nMiner Stats:")
-        for address, data in sorted(self.address_totals.items(), key=lambda x: x[1]['count'], reverse=True):
-            print(f"{address}: {data['count']} blocks [{data['winning_algo']}]")
+        difficulty = requests.get("https://explorer-api.veil-project.com/api/BlockchainInfo").json().get("chainInfo", {}).get("difficulty_randomx", 0)
+        if difficulty > 0 and avg_rx_spacing > 0:
+            return difficulty * 2**32 / avg_rx_spacing
+        return 0
+    except Exception as e:
+        print(f"[RandomX Estimation Error] {e}")
+        return 0
 
-    def print_summary_stats(self):
-        elapsed = time.time() - self.start_time
-        rate = self.total_blocks_processed / elapsed if elapsed > 0 else 0
-        print(f"\nSummary:")
-        print(f"Total blocks processed: {self.total_blocks_processed}")
-        print(f"Elapsed time: {elapsed:.2f} seconds")
-        print(f"Average rate: {rate:.2f} blocks/sec")
+def format_hashrate(hr, algo):
+    if algo == "progpow":
+        return f"{hr / 1_000_000:,.2f} MH/s"
+    elif algo == "sha256d":
+        return f"{hr:,.2f} H/s"
+    elif algo == "randomx":
+        return f"{hr / 1_000:,.2f} kH/s"
+    return f"{hr:,.2f} H/s"
 
-    def run(self):
-        while True:
-            current_block, current_hash = self.fetch_current_synced_block()
-            if not current_block or not current_hash:
-                time.sleep(15)
-                continue
+def get_colored_arrow(current, previous):
+    if current > previous:
+        return ":green[↑]"
+    elif current < previous:
+        return ":red[↓]"
+    return ":gray[→]"
 
-            if self.start_block is None:
-                self.start_block = current_block
+# ----------- Streamlit Dashboard -----------
+st.set_page_config(page_title="Veil Miner Dashboard", layout="wide")
+st.title("⛏️ Veil Miner Dashboard")
 
-            for h in range(self.last_processed_block + 1, current_block + 1):
-                block_info = self.fetch_block(height=h)
-                miner_address, algo = self.fetch_miner_address(block_info)
-                if miner_address:
-                    self.add_to_address_total(miner_address, algo)
-                    self.total_blocks_processed += 1
-                    if self.verbose:
-                        logging.debug(f"Block {h} - {miner_address} [{algo}]")
+# Manual refresh button
+if st.button("🔄 Refresh now"):
+    st.rerun()
 
-            self.last_processed_block = current_block
-            self.flush_miner_updates()
-            self.update_plot(current_block)
-            self.print_miner_info()
-            self.print_summary_stats()
-            time.sleep(self.interval)
+# Auto refresh every 5 min
+FULL_REFRESH_INTERVAL = 5 * 60
+if "last_refresh_time" not in st.session_state:
+    st.session_state["last_refresh_time"] = time.time()
+if time.time() - st.session_state["last_refresh_time"] >= FULL_REFRESH_INTERVAL:
+    st.session_state["last_refresh_time"] = time.time()
+    st.rerun()
 
-def parse_args():
-    parser = argparse.ArgumentParser(description="Veil Miner Distribution Tracker")
-    parser.add_argument("--interval", type=int, default=300, help="Polling interval in seconds")
-    parser.add_argument("--verbose", action="store_true", help="Enable verbose debug output")
-    return parser.parse_args()
+info = fetch_blockchain_info()
+if not info or "currentSyncedBlock" not in info or "chainInfo" not in info or "bestblockhash" not in info["chainInfo"]:
+    st.error("[-] Failed to fetch BlockchainInfo. The explorer may be down.")
+    st.stop()
 
-if __name__ == "__main__":
-    args = parse_args()
-    analyzer = MinerAnalyzer(interval=args.interval, verbose=args.verbose)
-    analyzer.run()
+latest_height = info["currentSyncedBlock"]
+start_height = max(0, latest_height - 60)
+existing_heights = get_existing_heights()
+latest_hash = info["chainInfo"]["bestblockhash"]
+
+if os.path.exists(CSV_FILE):
+    df = pd.read_csv(CSV_FILE)
+else:
+    df = pd.DataFrame(columns=["Block Height", "Timestamp", "Address", "Algorithm", "Difficulty"])
+
+new_blocks_added = 0
+try:
+    for height in range(start_height, latest_height + 1):
+        if height in existing_heights:
+            continue
+        data = fetch_block(height)
+        if data and "block" in data:
+            parsed = parse_block_data(data)
+            append_to_csv(*parsed)
+            new_blocks_added += 1
+    df = pd.read_csv(CSV_FILE)
+except Exception as e:
+    st.error(f"Error during block refresh: {e}")
+
+st.markdown(f"### 📦 Current Block Height: `{latest_height}`")
+st.markdown(f"### 🔗 Best Block Hash: `{latest_hash}`")
+st.markdown(f"### Displaying `{len(df)}` Mined Blocks")
+
+# Difficulty Stats
+st.subheader("📊 Difficulty")
+diffs = {
+    "ProgPoW": info["chainInfo"].get("difficulty_progpow", 0),
+    "RandomX": info["chainInfo"].get("difficulty_randomx", 0),
+    "SHA256D": info["chainInfo"].get("difficulty_sha256d", 0),
+    "PoS": info["chainInfo"].get("difficulty_pos", 0)
+}
+trend_df = df[df["Algorithm"].isin(["ProgPoW", "RandomX", "SHA256D"])].sort_values("Block Height", ascending=False)
+prev_diffs = {}
+for algo in ["ProgPoW", "RandomX", "SHA256D"]:
+    vals = trend_df[trend_df["Algorithm"] == algo]["Difficulty"].values
+    prev_diffs[algo] = vals[1] if len(vals) >= 2 else diffs[algo]
+
+cols = st.columns(4)
+for i, algo in enumerate(["ProgPoW", "RandomX", "SHA256D", "PoS"]):
+    arrow = get_colored_arrow(diffs[algo], prev_diffs.get(algo, diffs[algo])) if algo != "PoS" else ""
+    cols[i].markdown(f"**{algo} Difficulty:** `{diffs[algo]:.5f}` {arrow}")
+
+# Hashrates
+st.subheader("⚙️ Estimated Network Hashrate")
+progpow_hr = info["networkHashrates"].get("progpow", 0)
+sha256d_hr = info["networkHashrates"].get("sha256d", 0)
+randomx_hr = get_estimated_randomx_hashrate()
+hr_cols = st.columns(3)
+hr_cols[0].metric("ProgPoW", format_hashrate(progpow_hr, "progpow"))
+hr_cols[1].metric("RandomX", format_hashrate(randomx_hr, "randomx"))
+hr_cols[2].metric("SHA256D", format_hashrate(sha256d_hr, "sha256d"))
+
+# Charts
+if not df.empty:
+    st.subheader("📌 Unique Miner Contribution")
+    pow_df = df[df["Algorithm"].isin(["ProgPoW", "RandomX", "SHA256D"])]
+    counts = pow_df["Address"].value_counts().reset_index()
+    counts.columns = ["Address", "Blocks Mined"]
+    fig = px.pie(counts, names="Address", values="Blocks Mined", title="Miner Share")
+    st.plotly_chart(fig, use_container_width=True)
+
+    if any(counts["Blocks Mined"] / counts["Blocks Mined"].sum() > 0.51):
+        st.error("⚠️ WARNING: A miner has over 51% share!")
+
+    st.subheader("📊 Blocks by Algorithm")
+    grouped = pow_df.groupby(["Address", "Algorithm"]).size().reset_index(name="Blocks")
+    fig2 = px.bar(grouped, x="Address", y="Blocks", color="Algorithm")
+    st.plotly_chart(fig2, use_container_width=True)
+
+    st.subheader("📈 Mined Blocks Timeline")
+    pow_df.loc[:, 'Timestamp'] = pd.to_datetime(pow_df['Timestamp'])
+    sorted_df = pow_df.sort_values("Timestamp")
+    fig3 = px.line(sorted_df, x="Timestamp", y="Block Height", color="Algorithm", markers=True)
+    st.plotly_chart(fig3, use_container_width=True)
+
+    st.subheader("🧪 Expected vs Actual Distribution")
+    expected = pd.DataFrame({"Algorithm": ["ProgPoW", "RandomX", "SHA256D", "Stake"], "Expected %": [35, 10, 5, 50]})
+    actual = df["Algorithm"].value_counts(normalize=True).reset_index()
+    actual.columns = ["Algorithm", "Actual %"]
+    actual["Actual %"] *= 100
+    merged = expected.merge(actual, on="Algorithm", how="left").fillna(0)
+    fig4 = px.bar(merged.melt(id_vars="Algorithm"), x="Algorithm", y="value", color="variable", barmode="group")
+    st.plotly_chart(fig4, use_container_width=True)
+
+    st.dataframe(df.sort_values("Block Height", ascending=False), use_container_width=True, hide_index=True)
+else:
+    st.info("No mining data available yet.")
