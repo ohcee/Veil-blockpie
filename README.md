@@ -1,50 +1,32 @@
-# BlockPie 🥧
+# 🧱 BlockPie — Veil Miner Dashboard
 
-BlockPie is a real-time miner tracking and analytics dashboard for the [Veil Project](https://veil-project.com) Proof-of-Work blockchain. It monitors newly mined blocks using data from the public Veil Explorer API and displays live mining statistics, including block distribution per miner address, mining algorithm breakdown (ProgPoW, RandomX, SHA256D), and network difficulty.
+📍 GitHub Repo: [https://github.com/ohcee/Veil-blockpie](https://github.com/ohcee/Veil-blockpie)
 
-It helps reveal who is mining blocks, how often, and how dominant any one miner is — right in a simple web-based interface.
+**BlockPie** is a real-time dashboard that monitors which miners are winning Proof-of-Work blocks on the [Veil Project](https://veil-project.com) blockchain.
 
----
-
-## 🚀 Features
-
-- ⛏️ Displays top miners and how many blocks each has found  
-- 📊 Shows mining algorithm distribution (ProgPoW / RandomX / SHA256D)  
-- 🔍 Detects missed blocks and updates miner block counts  
-- ⏱️ Shows estimated network hashrates and difficulty per algorithm  
-- 🧠 Warns about potential 51% miner dominance  
-- 🕒 Automatically refreshes every 5 minutes, with optional manual refresh  
-- 📈 Graphs include pie charts, bar charts, and difficulty history  
-- 🎯 Filtered to only PoW blocks — staking blocks are ignored  
+It fetches block data every 5 minutes and displays pie charts, bar graphs, difficulty trends, and miner distribution insights. The dashboard highlights potential 51% threats, compares expected vs actual mining distribution, and stores history locally for deeper analysis.
 
 ---
 
-## 🛠 Requirements
+## ⚙️ Features
 
-Install the required Python libraries:
+- ⛏️ Pie chart showing who mined the most PoW blocks
+- 📊 Bar graph of address share by algorithm (ProgPoW, RandomX, SHA256D)
+- 📈 Line graph of difficulty over time for each PoW algorithm
+- 🧪 Expected vs Actual block distribution
+- ⚠️ 51% dominance detection
+- 🔁 Auto-refreshes every 5 minutes (or manually via browser reload)
+- 💾 Stores block data in `miner_data.csv` for historical analysis
+
+---
+
+## 🚀 Installation
+
+### 1. Clone the Repository
 
 ```bash
-pip install streamlit requests pandas matplotlib
-```
-🧩 How to Use
-
--    Clone or download this repository
-
--    Ensure Python 3.8+ is installed on your system
-
- -   Open a terminal in the project folder and run:
-```bash
-streamlit run blockpie.py
-```
-  -  A local web app will open automatically in your browser
-
-   - Let it run in the background to track mining activity over time
-
-📡 Notes
-
-   - Data is pulled from https://explorer-api.veil-project.com
-
-   - Only PoW blocks are used for miner tracking (staking blocks are ignored)
+git clone https://github.com/ohcee/Veil-blockpie.git
+cd Veil-blockpie
 
    - RandomX hashrate is estimated based on block frequency and adjusted for its 10% share
 
