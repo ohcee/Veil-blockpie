@@ -27,6 +27,20 @@ It fetches block data every 5 minutes and displays pie charts, bar graphs, diffi
 ```bash
 git clone https://github.com/ohcee/Veil-blockpie.git
 cd Veil-blockpie
+```
+2. Install Dependencies
+```bash
+pip install -r requirements.txt
+```
+- Or install manually:
+```bash
+pip install streamlit requests pandas plotly streamlit-autorefresh
+```
+3. Run the Dashboard
+```bash
+streamlit run blockpie.py
+```
+   - Make sure you're using Python 3.8+.
 
    - RandomX hashrate is estimated based on block frequency and adjusted for its 10% share
 
