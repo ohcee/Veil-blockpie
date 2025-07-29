@@ -113,9 +113,29 @@ def get_colored_arrow(current, previous):
 st.set_page_config(page_title="Veil Miner Dashboard", layout="wide")
 st.title("⛏️ Veil Miner Dashboard")
 
-# Manual refresh button
-if st.button("🔄 Refresh now"):
-    st.rerun()
+# Styled button using HTML and link
+st.markdown("""
+<div style="display: flex; justify-content: flex-start; margin-top: 1rem;">
+    <a href="?refresh=true">
+        <button style="
+            background-color: #grey;
+            color: white;
+            font-weight: 600;
+            font-size: 16px;
+            padding: 5px 9px;
+            border: none;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            cursor: pointer;
+            transition: all 0.25s ease-in-out;
+            letter-spacing: 0.5px;
+        " onmouseover="this.style.backgroundColor='#16a085'"
+           onmouseout="this.style.backgroundColor='#1abc9c'">
+            🔄 Refresh Dashboard
+        </button>
+    </a>
+</div>
+""", unsafe_allow_html=True)
 
 # Refresh every 5 minutes (300 seconds)
 st_autorefresh(interval=300_000, key="datarefresh")
