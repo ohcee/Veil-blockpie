@@ -6,6 +6,7 @@ import os
 import streamlit as st
 import pandas as pd
 import plotly.express as px
+import numpy as np
 from streamlit_autorefresh import st_autorefresh
 
 API_URL = "https://explorer-api.veil-project.com/api/Block"
@@ -116,13 +117,8 @@ st.title("⛏️ Veil Miner Dashboard")
 if st.button("🔄 Refresh now"):
     st.rerun()
 
-# Auto refresh every 5 min
-FULL_REFRESH_INTERVAL = 5 * 60
-if "last_refresh_time" not in st.session_state:
-    st.session_state["last_refresh_time"] = time.time()
-if time.time() - st.session_state["last_refresh_time"] >= FULL_REFRESH_INTERVAL:
-    st.session_state["last_refresh_time"] = time.time()
-    st.rerun()
+# Refresh every 5 minutes (300 seconds)
+st_autorefresh(interval=300_000, key="datarefresh")
 
 info = fetch_blockchain_info()
 if not info or "currentSyncedBlock" not in info or "chainInfo" not in info or "bestblockhash" not in info["chainInfo"]:
@@ -155,7 +151,7 @@ except Exception as e:
 
 st.markdown(f"### 📦 Current Block Height: `{latest_height}`")
 st.markdown(f"### 🔗 Best Block Hash: `{latest_hash}`")
-st.markdown(f"### Displaying `{len(df)}` Mined Blocks")
+st.markdown(f"### Displaying data for last `{len(df)}` blocks")
 
 # Difficulty Stats
 st.subheader("📊 Difficulty")
@@ -198,16 +194,32 @@ if not df.empty:
     if any(counts["Blocks Mined"] / counts["Blocks Mined"].sum() > 0.51):
         st.error("⚠️ WARNING: A miner has over 51% share!")
 
-    st.subheader("📊 Blocks by Algorithm")
-    grouped = pow_df.groupby(["Address", "Algorithm"]).size().reset_index(name="Blocks")
-    fig2 = px.bar(grouped, x="Address", y="Blocks", color="Algorithm")
-    st.plotly_chart(fig2, use_container_width=True)
-
-    st.subheader("📈 Mined Blocks Timeline")
-    pow_df.loc[:, 'Timestamp'] = pd.to_datetime(pow_df['Timestamp'])
-    sorted_df = pow_df.sort_values("Timestamp")
-    fig3 = px.line(sorted_df, x="Timestamp", y="Block Height", color="Algorithm", markers=True)
-    st.plotly_chart(fig3, use_container_width=True)
+    st.subheader("📊 Mining Activity Timeline")
+    # Convert 'Timestamp' to datetime if not already
+    df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
+    # Filter to only PoW algorithms
+    pow_only = df[df["Algorithm"].str.lower().isin(["progpow", "randomx", "sha256d"])]
+    # Use ALL PoW blocks from the dataset
+    recent_pow_blocks = pow_only.sort_values("Timestamp")
+    # ✅ Add jitter values to spread out vertically
+    # Map each algorithm to a base Y-value + small noise
+    jitter_map = {"progpow": 0.1, "randomx": 0.2, "sha256d": 0.3}
+    recent_pow_blocks["jitter"] = recent_pow_blocks["Algorithm"].str.lower().map(jitter_map) + np.random.normal(0, 0.02, len(recent_pow_blocks))
+    # ✅ Plot using jitter instead of categorical y-axis
+    fig = px.scatter(
+        recent_pow_blocks,
+        x="Timestamp",
+        y="jitter",
+        color="Algorithm",
+        labels={"Timestamp": "Block Time", "jitter": "Algorithm"},
+        height=400,
+    )
+    # ✅ Replace y-ticks with algorithm names
+    fig.update_yaxes(
+        tickvals=[0.1, 0.2, 0.3],
+        ticktext=["ProgPoW", "RandomX", "SHA256D"]
+    )
+    st.plotly_chart(fig, use_container_width=True)
 
     st.subheader("📉 Difficulty Trends by Algorithm")
     diff_df = pow_df.copy()
@@ -229,7 +241,7 @@ if not df.empty:
     actual.columns = ["Algorithm", "Actual %"]
     actual["Actual %"] *= 100
     merged = expected.merge(actual, on="Algorithm", how="left").fillna(0)
-    fig4 = px.bar(merged.melt(id_vars="Algorithm"), x="Algorithm", y="value", color="variable", barmode="group")
+    fig4 = px.bar(merged.melt(id_vars="Algorithm"), x="Algorithm", y="value", color="variable", barmode="group", labels={"value": "Percent of daily blocks"})
     st.plotly_chart(fig4, use_container_width=True)
 
     st.dataframe(df.sort_values("Block Height", ascending=False), use_container_width=True, hide_index=True)
