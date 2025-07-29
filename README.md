@@ -25,3 +25,29 @@ Install the required Python libraries:
 
 ```bash
 pip install streamlit requests pandas matplotlib
+
+🧩 How to Use
+
+    Clone or download this repository
+
+    Ensure Python 3.8+ is installed on your system
+
+    Open a terminal in the project folder and run:
+
+streamlit run dashboard.py
+
+    A local web app will open automatically in your browser
+
+    Let it run in the background to track mining activity over time
+
+📡 Notes
+
+    Data is pulled from https://explorer-api.veil-project.com
+
+    Only PoW blocks are used for miner tracking (staking blocks are ignored)
+
+    RandomX hashrate is estimated based on block frequency and adjusted for its 10% share
+
+    Works best when left running over time to analyze block trends
+
+    Miner warning is triggered if any single address exceeds 51% of blocks in the tracked window
