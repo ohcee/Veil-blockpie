@@ -209,6 +209,20 @@ if not df.empty:
     fig3 = px.line(sorted_df, x="Timestamp", y="Block Height", color="Algorithm", markers=True)
     st.plotly_chart(fig3, use_container_width=True)
 
+    st.subheader("📉 Difficulty Trends by Algorithm")
+    diff_df = pow_df.copy()
+    diff_df['Difficulty'] = pd.to_numeric(diff_df['Difficulty'], errors='coerce')
+    for algo in ["ProgPoW", "RandomX", "SHA256D"]:
+        sub_df = diff_df[diff_df["Algorithm"] == algo]
+        if not sub_df.empty:
+            fig_algo = px.line(
+                sub_df,
+                x="Timestamp",
+                y="Difficulty",
+                title=f"{algo} Difficulty Over Time"
+            )
+            st.plotly_chart(fig_algo, use_container_width=True)
+
     st.subheader("🧪 Expected vs Actual Distribution")
     expected = pd.DataFrame({"Algorithm": ["ProgPoW", "RandomX", "SHA256D", "Stake"], "Expected %": [35, 10, 5, 50]})
     actual = df["Algorithm"].value_counts(normalize=True).reset_index()
