@@ -214,7 +214,20 @@ if not df.empty:
     if any(counts["Blocks Mined"] / counts["Blocks Mined"].sum() > 0.51):
         st.error("⚠️ WARNING: A miner has over 51% share!")
 
-    st.subheader("📊 Mining Activity Timeline")
+    st.subheader("Address Share by Algorithm")
+    pow_df = df[df["Algorithm"].isin(["ProgPoW", "RandomX", "SHA256D"])]
+    algo_share = pow_df.groupby(["Address", "Algorithm"]).size().reset_index(name="Blocks Mined")
+    fig_algo_share = px.bar(
+        algo_share,
+        x="Address",
+        y="Blocks Mined",
+        color="Algorithm",
+        title="Miner Address Share by Algorithm",
+        barmode="stack"
+    )
+    st.plotly_chart(fig_algo_share, use_container_width=True)
+
+    st.subheader("Mining Activity Timeline")
     # Convert 'Timestamp' to datetime if not already
     df["Timestamp"] = pd.to_datetime(df["Timestamp"], errors="coerce")
     # Filter to only PoW algorithms
