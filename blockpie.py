@@ -146,7 +146,7 @@ if not info or "currentSyncedBlock" not in info or "chainInfo" not in info or "b
     st.stop()
 
 latest_height = info["currentSyncedBlock"]
-start_height = max(0, latest_height - 10000)
+start_height = max(0, latest_height - 1000)
 existing_heights = get_existing_heights()
 latest_hash = info["chainInfo"]["bestblockhash"]
 
