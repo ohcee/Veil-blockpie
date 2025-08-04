@@ -113,38 +113,68 @@ def get_colored_arrow(current, previous):
 st.set_page_config(page_title="Veil Miner Dashboard", layout="wide")
 st.title("⛏️ Veil Miner Dashboard")
 
-# Styled button using HTML and link
-st.markdown("""
-<div style="display: flex; justify-content: flex-start; margin-top: 1rem;">
-    <a href="?refresh=true">
-        <button style="
-            background-color: #grey;
-            color: white;
-            font-weight: 600;
-            font-size: 16px;
-            padding: 5px 9px;
-            border: none;
-            border-radius: 10px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            cursor: pointer;
-            transition: all 0.25s ease-in-out;
-            letter-spacing: 0.5px;
-        " onmouseover="this.style.backgroundColor='#16a085'"
-           onmouseout="this.style.backgroundColor='#1abc9c'">
-            🔄 Refresh Dashboard
-        </button>
-    </a>
-</div>
-""", unsafe_allow_html=True)
+# Button styles
+button_style = """
+<style>
+.action-btn {
+    font-weight: 600;
+    font-size: 16px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 10px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+    transition: all 0.25s ease-in-out;
+    letter-spacing: 0.5px;
+}
 
-# Reset CSV and start fresh
-if st.button("🗑️ Reset Dashboard Data", key="reset"):
-    if os.path.exists(CSV_FILE):
-        os.remove(CSV_FILE)
-        st.success("✅ miner_data.csv has been deleted. The dashboard will refresh with fresh data.")
+/* Refresh button - green */
+.refresh-btn {
+    background-color: #1abc9c;
+    color: white;
+}
+.refresh-btn:hover {
+    background-color: #16a085;
+}
+
+/* Reset button - red */
+.reset-btn {
+    background-color: #e74c3c;
+    color: white;
+}
+.reset-btn:hover {
+    background-color: #c0392b;
+}
+</style>
+"""
+st.markdown(button_style, unsafe_allow_html=True)
+
+# Track if reset was clicked
+if "reset_clicked" not in st.session_state:
+    st.session_state.reset_clicked = False
+
+# Side-by-side columns for Refresh and Reset
+col1, col2 = st.columns(2)
+
+with col1:
+    if st.button("🔄 Refresh Dashboard", key="refresh", help="Reload dashboard data"):
         st.rerun()
-    else:
-        st.warning("⚠️ No miner_data.csv file found to delete.")
+
+with col2:
+    if st.button("🗑️ Reset Dashboard Data", key="reset", help="Delete miner_data.csv and reload"):
+        st.session_state.reset_clicked = True
+
+# Show confirm reset only after button clicked
+if st.session_state.reset_clicked:
+    confirm = st.checkbox("✅ Confirm Reset", key="confirm_reset")
+    if confirm:
+        if os.path.exists(CSV_FILE):
+            os.remove(CSV_FILE)
+            st.success("✅ miner_data.csv deleted. Dashboard will reload fresh.")
+            st.session_state.reset_clicked = False
+            st.rerun()
+        else:
+            st.warning("⚠️ No miner_data.csv found to delete.")
 
 # Refresh every 5 minutes (300 seconds)
 st_autorefresh(interval=300_000, key="datarefresh")
