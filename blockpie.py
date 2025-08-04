@@ -137,6 +137,15 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
+# Reset CSV and start fresh
+if st.button("🗑️ Reset Dashboard Data", key="reset"):
+    if os.path.exists(CSV_FILE):
+        os.remove(CSV_FILE)
+        st.success("✅ miner_data.csv has been deleted. The dashboard will refresh with fresh data.")
+        st.rerun()
+    else:
+        st.warning("⚠️ No miner_data.csv file found to delete.")
+
 # Refresh every 5 minutes (300 seconds)
 st_autorefresh(interval=300_000, key="datarefresh")
 
